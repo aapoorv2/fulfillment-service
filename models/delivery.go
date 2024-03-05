@@ -7,3 +7,8 @@ type Delivery struct {
 	DeliveryAgent *User
 	Status string
 }
+
+const (
+	AVAILABLE = "AVAILABLE"
+	UNAVAILABLE = "UNAVAILABLE"
+)

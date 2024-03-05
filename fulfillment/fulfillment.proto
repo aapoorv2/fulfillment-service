@@ -3,13 +3,22 @@ package fulfillment;
 option go_package = "fulfillment/fulfillment";
 service FulFillment {
   rpc AssignDeliveryAgent (AssignRequest) returns (AssignResponse);
-  
+  rpc RegisterDeliveryAgent (RegisterRequest) returns (RegisterResponse);
+}
+
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
+  string city = 3;
+}
+
+message RegisterResponse {
+  string message = 1;
 }
 
 message AssignRequest {
   int64 order_id = 1;
   string city = 2;
-
 }
 
 message AssignResponse {
