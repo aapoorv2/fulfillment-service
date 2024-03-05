@@ -28,9 +28,14 @@ func Connection() *gorm.DB {
 
 	log.Println("Connected to the database")
 
-	err = db.AutoMigrate(&models.User{}, &models.Delivery{})
+	err = db.AutoMigrate(&models.User{})
 	if err != nil {
-		log.Fatalf("Error migrating database: %v", err)
+		log.Fatalf("Error migrating User table: %v", err)
+	}
+
+	err = db.AutoMigrate(&models.Delivery{})
+	if err != nil {
+		log.Fatalf("Error migrating Delivery table: %v", err)
 	}
 
 	return db

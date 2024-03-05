@@ -67,4 +67,3 @@ func(s *Server) RegisterDeliveryAgent(ctx context.Context, req *pb.RegisterReque
 
 	return response, nil
 }
-
