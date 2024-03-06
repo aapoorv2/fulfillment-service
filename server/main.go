@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"fulfillment/database"
+	"fulfillment/fulfillment"
 	pb "fulfillment/fulfillment"
 	"log"
 	"net"
@@ -110,12 +111,28 @@ func (s *Server) UpdateDeliveryAgentAvailability(ctx context.Context, req *pb.Up
 	user.Availability = models.AVAILABLE
 	s.DB.Save(&user)
 
+	
+
 	response := &pb.UpdateResponse{
 		Message: "Order delivered and the delivery agent is now available",
 	}
 	return response, nil
 }
 
+func (s *Server) FetchAllDeliveriesForAnAgent(ctx context.Context, req *pb.FetchDeliveriesRequest) (*pb.FetchDeliveriesResponse, error) {
+	user, err := s.getCredentials(ctx)
+	if err != nil {
+		errorString := fmt.Sprintf("%v", err)
+		return nil, status.Error(codes.Unauthenticated, errorString)
+	}
+	deliveries := database.FetchDeliveriesForAnAgent(s.DB, user.ID)
+	response := &pb.FetchDeliveriesResponse{}
+	for _, delivery := range deliveries {
+		deliveryResponse := &fulfillment.Delivery{Id: delivery.ID,  OrderId: delivery.OrderID, City: delivery.City}
+		response.Deliveries = append(response.Deliveries, deliveryResponse)
+	}
+	return response, nil
+}
 
 func(s *Server) getCredentials(ctx context.Context) (models.User, error) {
 	md, _ := metadata.FromIncomingContext(ctx)

@@ -5,6 +5,7 @@ service FulFillment {
   rpc AssignDeliveryAgent (AssignRequest) returns (AssignResponse);
   rpc RegisterDeliveryAgent (RegisterRequest) returns (RegisterResponse);
   rpc UpdateDeliveryAgentAvailability (UpdateRequest) returns (UpdateResponse);
+  rpc FetchAllDeliveriesForAnAgent (FetchDeliveriesRequest) returns (FetchDeliveriesResponse);
 }
 
 message RegisterRequest {
@@ -30,6 +31,18 @@ message UpdateRequest {}
 
 message UpdateResponse {
   string message = 1;
+}
+
+message FetchDeliveriesRequest {}
+
+message Delivery {
+  uint64 id = 1;
+  uint64 order_id = 2;
+  string city = 3;
+}
+
+message FetchDeliveriesResponse {
+  repeated Delivery deliveries = 1;
 }
 
 // export PATH="$PATH:$(go env GOPATH)/bin"
