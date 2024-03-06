@@ -5,7 +5,6 @@ type Delivery struct {
 	OrderID       uint64  
 	City          string
 	DeliveryAgent *User   `gorm:"foreignKey:ID"` 
-	Status        string
 }
 
 const (

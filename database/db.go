@@ -51,3 +51,15 @@ func FindByUsername(db *gorm.DB, username string) (*models.User, error) {
 
 	return &user, nil
 }
+
+func FindAvailableDeliveryAgentByCity(db *gorm.DB, city string) (*models.User, error) {
+	var user models.User
+	result := db.Where("city = ? AND availability = ?", city, models.AVAILABLE).First(&user)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	user.Availability = models.UNAVAILABLE
+	db.Save(&user)
+	return &user, nil
+}

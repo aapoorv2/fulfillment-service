@@ -3,7 +3,7 @@ module fulfillment
 go 1.21.6
 
 require (
-	google.golang.org/grpc v1.62.0
+	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.32.0
 	gorm.io/gorm v1.25.7
 )

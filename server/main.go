@@ -2,16 +2,20 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"fulfillment/database"
 	pb "fulfillment/fulfillment"
 	"log"
 	"net"
+	"strings"
 
 	"fulfillment/models"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 )
@@ -57,7 +61,7 @@ func(s *Server) RegisterDeliveryAgent(ctx context.Context, req *pb.RegisterReque
 	err = s.DB.Create(&user).Error
 
 	if err != nil {
-		errorString := fmt.Sprintf("error storing the user: %v", err)
+		errorString := fmt.Sprintf("Error storing the user: %v", err)
 		return nil, status.Errorf(codes.Unknown, errorString)
 	}
 
@@ -66,4 +70,68 @@ func(s *Server) RegisterDeliveryAgent(ctx context.Context, req *pb.RegisterReque
 	}
 
 	return response, nil
+}
+
+func(s *Server) AssignDeliveryAgent(ctx context.Context, req *pb.AssignRequest) (*pb.AssignResponse, error) {
+	delivery_agent, err := database.FindAvailableDeliveryAgentByCity(s.DB, req.City)
+
+	if err != nil {
+		errorString := fmt.Sprintf("No delivery agent available: %v", err)
+		return nil, status.Error(codes.Unavailable, errorString)
+	}
+
+	delivery := &models.Delivery{
+		OrderID: uint64(req.OrderId),
+		City: req.City,
+		DeliveryAgent: delivery_agent,
+	}
+
+	err = s.DB.Create(&delivery).Error
+
+	if err != nil {
+		errorString := fmt.Sprintf("Error storing the delivery: %v", err)
+		return nil, status.Errorf(codes.Unknown, errorString)
+	}
+
+	response := &pb.AssignResponse{
+		Message: "Successfully Assigned a delivery agent!",
+	}
+
+	return response, nil
+}
+
+
+func(s *Server) getCredentials(ctx context.Context) (models.User, error) {
+	md, _ := metadata.FromIncomingContext(ctx)
+	authHeader, ok := md["authorization"]
+
+	if !ok || len(authHeader) == 0 {
+		return models.User{}, errors.New("Authorization header not found")
+	}
+
+	authParts := strings.Fields(authHeader[0])
+	if len(authParts) != 2 || authParts[0] != "Basic" {
+		return models.User{}, errors.New("Invalid Authorization header format")
+	}
+
+	decodedCredentials, err := base64.StdEncoding.DecodeString(authParts[1])
+	if err != nil {
+		return models.User{}, errors.New("Error decoding base64 credentials")
+	}
+
+	credentials := strings.SplitN(string(decodedCredentials), ":", 2)
+	if len(credentials) != 2 {
+		return models.User{}, errors.New("Invalid credentials format")
+	}
+
+	username := credentials[0]
+	password := credentials[1]
+
+	var user models.User
+	err = s.DB.Where("username = ? AND password = ?", username, password).First(&user).Error
+	if err != nil {
+		return models.User{}, errors.New("Invalid credentials")
+	}
+
+	return user, nil
 }
