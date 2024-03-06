@@ -4,6 +4,7 @@ option go_package = "fulfillment/fulfillment";
 service FulFillment {
   rpc AssignDeliveryAgent (AssignRequest) returns (AssignResponse);
   rpc RegisterDeliveryAgent (RegisterRequest) returns (RegisterResponse);
+  rpc UpdateDeliveryAgentAvailability (UpdateRequest) returns (UpdateResponse);
 }
 
 message RegisterRequest {
@@ -25,6 +26,11 @@ message AssignResponse {
   string message = 1;
 }
 
+message UpdateRequest {}
+
+message UpdateResponse {
+  string message = 1;
+}
 
 // export PATH="$PATH:$(go env GOPATH)/bin"
 // protoc -Ifulfillment --go_out=.  --go_opt=module=fulfillment --go-grpc_out=. --go-grpc_opt=module=fulfillment fulfillment/fulfillment.proto

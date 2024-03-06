@@ -72,6 +72,7 @@ func(s *Server) RegisterDeliveryAgent(ctx context.Context, req *pb.RegisterReque
 	return response, nil
 }
 
+
 func(s *Server) AssignDeliveryAgent(ctx context.Context, req *pb.AssignRequest) (*pb.AssignResponse, error) {
 	delivery_agent, err := database.FindAvailableDeliveryAgentByCity(s.DB, req.City)
 
@@ -100,28 +101,43 @@ func(s *Server) AssignDeliveryAgent(ctx context.Context, req *pb.AssignRequest) 
 	return response, nil
 }
 
+func (s *Server) UpdateDeliveryAgentAvailability(ctx context.Context, req *pb.UpdateRequest) (*pb.UpdateResponse, error) {
+	user, err := s.getCredentials(ctx)
+	if err != nil {
+		errorString := fmt.Sprintf("%v", err)
+		return nil, status.Error(codes.Unauthenticated, errorString)
+	}
+	user.Availability = models.AVAILABLE
+	s.DB.Save(&user)
+
+	response := &pb.UpdateResponse{
+		Message: "Order delivered and the delivery agent is now available",
+	}
+	return response, nil
+}
+
 
 func(s *Server) getCredentials(ctx context.Context) (models.User, error) {
 	md, _ := metadata.FromIncomingContext(ctx)
 	authHeader, ok := md["authorization"]
 
 	if !ok || len(authHeader) == 0 {
-		return models.User{}, errors.New("Authorization header not found")
+		return models.User{}, errors.New("authorization header not found")
 	}
 
 	authParts := strings.Fields(authHeader[0])
 	if len(authParts) != 2 || authParts[0] != "Basic" {
-		return models.User{}, errors.New("Invalid Authorization header format")
+		return models.User{}, errors.New("invalid Authorization header format")
 	}
 
 	decodedCredentials, err := base64.StdEncoding.DecodeString(authParts[1])
 	if err != nil {
-		return models.User{}, errors.New("Error decoding base64 credentials")
+		return models.User{}, errors.New("error decoding base64 credentials")
 	}
 
 	credentials := strings.SplitN(string(decodedCredentials), ":", 2)
 	if len(credentials) != 2 {
-		return models.User{}, errors.New("Invalid credentials format")
+		return models.User{}, errors.New("invalid credentials format")
 	}
 
 	username := credentials[0]

@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type FulFillmentClient interface {
 	AssignDeliveryAgent(ctx context.Context, in *AssignRequest, opts ...grpc.CallOption) (*AssignResponse, error)
 	RegisterDeliveryAgent(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
+	UpdateDeliveryAgentAvailability(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error)
 }
 
 type fulFillmentClient struct {
@@ -52,12 +53,22 @@ func (c *fulFillmentClient) RegisterDeliveryAgent(ctx context.Context, in *Regis
 	return out, nil
 }
 
+func (c *fulFillmentClient) UpdateDeliveryAgentAvailability(ctx context.Context, in *UpdateRequest, opts ...grpc.CallOption) (*UpdateResponse, error) {
+	out := new(UpdateResponse)
+	err := c.cc.Invoke(ctx, "/fulfillment.FulFillment/UpdateDeliveryAgentAvailability", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FulFillmentServer is the server API for FulFillment service.
 // All implementations must embed UnimplementedFulFillmentServer
 // for forward compatibility
 type FulFillmentServer interface {
 	AssignDeliveryAgent(context.Context, *AssignRequest) (*AssignResponse, error)
 	RegisterDeliveryAgent(context.Context, *RegisterRequest) (*RegisterResponse, error)
+	UpdateDeliveryAgentAvailability(context.Context, *UpdateRequest) (*UpdateResponse, error)
 	mustEmbedUnimplementedFulFillmentServer()
 }
 
@@ -70,6 +81,9 @@ func (UnimplementedFulFillmentServer) AssignDeliveryAgent(context.Context, *Assi
 }
 func (UnimplementedFulFillmentServer) RegisterDeliveryAgent(context.Context, *RegisterRequest) (*RegisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterDeliveryAgent not implemented")
+}
+func (UnimplementedFulFillmentServer) UpdateDeliveryAgentAvailability(context.Context, *UpdateRequest) (*UpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateDeliveryAgentAvailability not implemented")
 }
 func (UnimplementedFulFillmentServer) mustEmbedUnimplementedFulFillmentServer() {}
 
@@ -120,6 +134,24 @@ func _FulFillment_RegisterDeliveryAgent_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FulFillment_UpdateDeliveryAgentAvailability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FulFillmentServer).UpdateDeliveryAgentAvailability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/fulfillment.FulFillment/UpdateDeliveryAgentAvailability",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FulFillmentServer).UpdateDeliveryAgentAvailability(ctx, req.(*UpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FulFillment_ServiceDesc is the grpc.ServiceDesc for FulFillment service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -134,6 +166,10 @@ var FulFillment_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterDeliveryAgent",
 			Handler:    _FulFillment_RegisterDeliveryAgent_Handler,
+		},
+		{
+			MethodName: "UpdateDeliveryAgentAvailability",
+			Handler:    _FulFillment_UpdateDeliveryAgentAvailability_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
