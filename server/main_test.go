@@ -39,6 +39,7 @@ func TestRegisterDeliveryAgent(t *testing.T) {
 		rows    func()
 		want    *pb.RegisterResponse
 		wantErr bool
+		errorCode codes.Code
 	}{
 		{
 			name: "Register a user",
@@ -68,7 +69,38 @@ func TestRegisterDeliveryAgent(t *testing.T) {
 			},
 			wantErr: false,
 		},
-		
+		{
+			name: "User already exists",
+			args: args{
+				ctx: context.Background(),
+				req: &pb.RegisterRequest{
+					Username: "existingUser",
+					Password: "password123",
+					City:     "TestCity",
+				},
+			},
+			rows: func() {
+				mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+			},
+			want:    nil,
+			wantErr: true,
+			errorCode: codes.AlreadyExists,
+		},
+		{
+			name: "Missing user data",
+			args: args{
+				ctx: context.Background(),
+				req: &pb.RegisterRequest{
+					// Missing username
+					Password: "password123",
+					City:     "TestCity",
+				},
+			},
+			rows:    func() {},
+			want:    nil,
+			wantErr: true,
+			errorCode: codes.InvalidArgument,
+		},
 	}
 
 	for _, tt := range tests {
@@ -84,7 +116,7 @@ func TestRegisterDeliveryAgent(t *testing.T) {
 			if tt.wantErr {
 				statusErr, ok := status.FromError(err)
 				assert.True(t, ok, "Expected gRPC status error")
-				assert.Equal(t, codes.AlreadyExists, statusErr.Code(), "Expected AlreadyExists error")
+				assert.Equal(t, tt.errorCode, statusErr.Code(), "Expected AlreadyExists error")
 			} else {
 				assert.Equalf(t, tt.want, got, "RegisterDeliveryAgent(%v, %v)", tt.args.ctx, tt.args.req)
 			}
