@@ -163,7 +163,7 @@ func(s *Server) getCredentials(ctx context.Context) (models.User, error) {
 	var user models.User
 	err = s.DB.Where("username = ? AND password = ?", username, password).First(&user).Error
 	if err != nil {
-		return models.User{}, errors.New("Invalid credentials")
+		return models.User{}, errors.New("invalid credentials")
 	}
 
 	return user, nil
