@@ -59,8 +59,6 @@ func FindAvailableDeliveryAgentByCity(db *gorm.DB, city string) (*models.User, e
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	user.Availability = models.UNAVAILABLE
-	db.Save(&user)
 	return &user, nil
 }
 
@@ -68,4 +66,13 @@ func FetchDeliveriesForAnAgent(db *gorm.DB, userID uint64) ([]models.Delivery) {
     var deliveries []models.Delivery
     db.Preload("DeliveryAgent").Where("delivery_agent_id = ?", userID).Find(&deliveries)
     return deliveries
+}
+
+func FetchUndeliveredDeliveryForAnAgent(db *gorm.DB, userID uint64) (*models.Delivery, error) {
+	var delivery models.Delivery
+	result := db.Where("delivery_agent_id = ? AND status = ?", userID, models.UNDELIVERED).First(&delivery)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &delivery, nil
 }

@@ -39,6 +39,7 @@ message Delivery {
   uint64 id = 1;
   uint64 order_id = 2;
   string city = 3;
+  string status = 4;
 }
 
 message FetchDeliveriesResponse {

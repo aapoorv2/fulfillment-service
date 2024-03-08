@@ -6,9 +6,12 @@ type Delivery struct {
 	City          string
 	DeliveryAgent *User    `gorm:"foreignKey:DeliveryAgentID"`
     DeliveryAgentID uint64
+	Status string
 }
 
 const (
 	AVAILABLE = "AVAILABLE"
 	UNAVAILABLE = "UNAVAILABLE"
+	DELIVERED = "DELIVERED"
+	UNDELIVERED = "UNDELIVERED"
 )

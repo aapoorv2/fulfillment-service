@@ -1,15 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"fulfillment/database"
 	"fulfillment/fulfillment"
 	pb "fulfillment/fulfillment"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"strings"
 
 	"fulfillment/models"
@@ -25,7 +29,6 @@ type Server struct {
 	pb.FulFillmentServer
 	DB *gorm.DB
 }
-
 
 func main() {
 	db := database.Connection()
@@ -73,19 +76,25 @@ func(s *Server) RegisterDeliveryAgent(ctx context.Context, req *pb.RegisterReque
 	return response, nil
 }
 
-
 func(s *Server) AssignDeliveryAgent(ctx context.Context, req *pb.AssignRequest) (*pb.AssignResponse, error) {
 	delivery_agent, err := database.FindAvailableDeliveryAgentByCity(s.DB, req.City)
-
 	if err != nil {
 		errorString := fmt.Sprintf("No delivery agent available: %v", err)
 		return nil, status.Error(codes.Unavailable, errorString)
+	}
+	
+	delivery_agent.Availability = models.UNAVAILABLE
+	result := s.DB.Save(&delivery_agent)
+	if result.Error != nil {
+		errorString := fmt.Sprintf("Unable to update delivery agent's status: %v", err)
+		return nil, status.Error(codes.InvalidArgument, errorString)
 	}
 
 	delivery := &models.Delivery{
 		OrderID: uint64(req.OrderId),
 		City: req.City,
 		DeliveryAgent: delivery_agent,
+		Status: models.UNDELIVERED,
 	}
 
 	err = s.DB.Create(&delivery).Error
@@ -108,14 +117,40 @@ func (s *Server) UpdateDeliveryAgentAvailability(ctx context.Context, req *pb.Up
 		errorString := fmt.Sprintf("%v", err)
 		return nil, status.Error(codes.Unauthenticated, errorString)
 	}
-	user.Availability = models.AVAILABLE
-	s.DB.Save(&user)
 
+	delivery, err := database.FetchUndeliveredDeliveryForAnAgent(s.DB, user.ID)
+	if err != nil {
+		errorString := fmt.Sprintf("No deliveries found: %v", err)
+		return nil, status.Error(codes.Unavailable, errorString)
+	}
 	
+	requestBody, _ := json.Marshal(map[string]any{
+		"orderId": delivery.OrderID,
+	})
+	url := "http://localhost:8081/orders"
+	updateReq, err := http.NewRequest("PUT", url, bytes.NewBuffer(requestBody))
+	if err != nil {
+		errorString := fmt.Sprintf("Unable to update order status: %v", err)
+		return nil, status.Error(codes.Aborted, errorString)
+	} 
+	updateReq.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, _ := client.Do(updateReq)
+	if resp.StatusCode != int(codes.OK) {
+		errorString := fmt.Sprintf("Wrong status code: %v", err)
+		return nil, status.Error(codes.Aborted, errorString)
+	}
+	defer resp.Body.Close()
+	message, _ := io.ReadAll(resp.Body)
 
 	response := &pb.UpdateResponse{
-		Message: "Order delivered and the delivery agent is now available",
+		Message: string(message),
 	}
+
+	user.Availability = models.AVAILABLE
+	s.DB.Save(&user)
+	delivery.Status = models.DELIVERED
+	s.DB.Save(&delivery)
 	return response, nil
 }
 
@@ -128,7 +163,7 @@ func (s *Server) FetchAllDeliveriesForAnAgent(ctx context.Context, req *pb.Fetch
 	deliveries := database.FetchDeliveriesForAnAgent(s.DB, user.ID)
 	response := &pb.FetchDeliveriesResponse{}
 	for _, delivery := range deliveries {
-		deliveryResponse := &fulfillment.Delivery{Id: delivery.ID,  OrderId: delivery.OrderID, City: delivery.City}
+		deliveryResponse := &fulfillment.Delivery{Id: delivery.ID,  OrderId: delivery.OrderID, City: delivery.City, Status: delivery.Status}
 		response.Deliveries = append(response.Deliveries, deliveryResponse)
 	}
 	return response, nil
