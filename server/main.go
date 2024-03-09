@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"fulfillment/database"
@@ -14,6 +12,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"fulfillment/models"
@@ -82,7 +81,7 @@ func(s *Server) AssignDeliveryAgent(ctx context.Context, req *pb.AssignRequest) 
 		errorString := fmt.Sprintf("No delivery agent available: %v", err)
 		return nil, status.Error(codes.Unavailable, errorString)
 	}
-	
+
 	delivery_agent.Availability = models.UNAVAILABLE
 	result := s.DB.Save(&delivery_agent)
 	if result.Error != nil {
@@ -124,11 +123,8 @@ func (s *Server) UpdateDeliveryAgentAvailability(ctx context.Context, req *pb.Up
 		return nil, status.Error(codes.Unavailable, errorString)
 	}
 	
-	requestBody, _ := json.Marshal(map[string]any{
-		"orderId": delivery.OrderID,
-	})
-	url := "http://localhost:8081/orders"
-	updateReq, err := http.NewRequest("PUT", url, bytes.NewBuffer(requestBody))
+	url := "http://localhost:8081/orders/" + strconv.Itoa(int(delivery.OrderID))
+	updateReq, err := http.NewRequest("PUT", url, nil)
 	if err != nil {
 		errorString := fmt.Sprintf("Unable to update order status: %v", err)
 		return nil, status.Error(codes.Aborted, errorString)
@@ -136,8 +132,8 @@ func (s *Server) UpdateDeliveryAgentAvailability(ctx context.Context, req *pb.Up
 	updateReq.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, _ := client.Do(updateReq)
-	if resp.StatusCode != int(codes.OK) {
-		errorString := fmt.Sprintf("Wrong status code: %v", err)
+	if resp.StatusCode != 200 {
+		errorString := fmt.Sprintf("Wrong status code: %v", resp.StatusCode)
 		return nil, status.Error(codes.Aborted, errorString)
 	}
 	defer resp.Body.Close()
