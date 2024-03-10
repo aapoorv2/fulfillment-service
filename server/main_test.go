@@ -214,6 +214,22 @@ func TestAssignDeliveryAgent(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name : "No delivery agents available - Expect Error",
+			args: args{
+				ctx: context.Background(),
+				req: &pb.AssignRequest{
+					OrderId: 1,
+					City: "TestCity",
+				},
+			},
+			rows: func() {
+				mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{}))
+			},
+			want: nil,
+			wantErr: true,
+			errorCode: codes.Unavailable,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
