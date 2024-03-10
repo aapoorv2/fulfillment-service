@@ -370,3 +370,121 @@ func TestFetchingAllDeliveriesForADeliveryAgent(t *testing.T) {
 	}
 }
 
+func TestUpdateDeliveryAgentAvailability(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.Nil(t, err, "Error creating mock db: %v", err)
+
+	defer db.Close()
+
+	dialect := postgres.New(postgres.Config{
+		Conn:       db,
+		DriverName: "postgres",
+	})
+
+	gormDb, err := gorm.Open(dialect, &gorm.Config{})
+	assert.Nil(t, err, "Error creating mock gorm db: %v", err)
+
+	type args struct {
+		ctx context.Context
+		req *pb.UpdateRequest
+	}
+	tests := []struct {
+		name      string
+		args      args
+		rows      func()
+		want      *pb.UpdateResponse
+		wantErr   bool
+		errorCode codes.Code
+	}{
+		{
+			name: "Update Delivery Agent Availability - Expect Success",
+			args: args{
+				ctx: metadata.NewIncomingContext(context.Background(), metadata.MD{
+					"authorization": []string{"Basic " + base64.StdEncoding.EncodeToString([]byte("testuser:testpassword"))},
+				}),
+				req: &pb.UpdateRequest{},
+			},
+			rows: func() {
+				mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{"id", "username", "password", "city", "availability"}).
+					AddRow(1, "testuser", "testpassword", "TestCity", "UNAVAILABLE"))
+
+				mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{"id", "order_id", "city", "delivery_Agent_id", "status"}).
+					AddRow(1, 1, "TestCity", 1, "UNDELIVERED"))
+
+				mock.ExpectBegin()
+				mock.ExpectExec("UPDATE").WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectCommit()
+
+				mock.ExpectBegin()
+				mock.ExpectExec("UPDATE").WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectCommit()
+			
+			},
+			want: &pb.UpdateResponse{
+				Message: "Successfully delivered the order!",
+			},
+			wantErr:   false,
+		},
+		{
+			name: "Updating Delivery Agent's Availability - Expect No deliveries found error",
+			args: args{
+				ctx: metadata.NewIncomingContext(context.Background(), metadata.MD{
+					"authorization": []string{"Basic " + base64.StdEncoding.EncodeToString([]byte("testuser:testpassword"))},
+				}),
+				req: &pb.UpdateRequest{},
+			},
+			rows: func() {
+				mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{"id", "username", "password", "city", "availability"}).
+					AddRow(1, "testuser", "testpassword", "TestCity", "UNAVAILABLE"))
+
+				mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{}))
+			
+			},
+			want: nil,
+			wantErr:   true,
+			errorCode: codes.Unavailable,
+		},
+		{
+			name: "Updating Delivery Agent's Availability - Expect unauthenticated error",
+			args: args{
+				ctx: metadata.NewIncomingContext(context.Background(), metadata.MD{
+					"authorization": []string{"Basic " + base64.StdEncoding.EncodeToString([]byte("testuser:testpassword"))},
+				}),
+				req: &pb.UpdateRequest{},
+			},
+			rows: func() {
+				mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{}))
+			},
+			want: nil,
+			wantErr:   true,
+			errorCode: codes.Unauthenticated,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.rows()
+
+			authHeader := "Basic " + base64.StdEncoding.EncodeToString([]byte("availableUser:password123"))
+			ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", authHeader))
+			tt.args.ctx = ctx
+
+			server := &Server{
+				DB:        gormDb,
+			}
+
+			got, err := server.UpdateDeliveryAgentAvailability(tt.args.ctx, tt.args.req)
+
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("UpdateDeliveryAgentAvailability() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				statusErr, ok := status.FromError(err)
+				assert.True(t, ok, "Expected gRPC status error")
+				assert.Equalf(t, tt.errorCode, statusErr.Code(), "Expected %v error", tt.errorCode)
+			} else {
+				assert.Equalf(t, tt.want, got, "UpdateDeliveryAgentAvailability(%v, %v)", tt.args.ctx, tt.args.req)
+			}
+		})
+	}
+}
