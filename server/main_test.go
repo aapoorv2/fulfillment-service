@@ -199,14 +199,13 @@ func TestAssignDeliveryAgent(t *testing.T) {
 
 
 				mock.ExpectBegin()
-				// rows := sqlmock.NewRows([]string{
-				// 	"id",
-				// 	"order_id",
-				// 	"city",
-				// 	"delivery_agent_id",
-				// }).AddRow(1, 1, "TestCity", 1)
-				// mock.ExpectQuery("INSERT").WillReturnRows(rows)
-				mock.ExpectExec("INSERT INTO \"deliveries\"").WithArgs(sqlmock.AnyArg(), 1, "TestCity", 1).WillReturnResult(sqlmock.NewResult(1, 1))
+				rows := sqlmock.NewRows([]string{
+					"id",
+					"order_id",
+					"city",
+					"delivery_agent_id",
+				}).AddRow(1, 1, "TestCity", 1)
+				mock.ExpectQuery("INSERT").WillReturnRows(rows)
 				mock.ExpectCommit()
 				
 			},

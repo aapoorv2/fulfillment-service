@@ -84,6 +84,7 @@ func(s *Server) AssignDeliveryAgent(ctx context.Context, req *pb.AssignRequest) 
 
 	delivery_agent.Availability = models.UNAVAILABLE
 	result := s.DB.Save(&delivery_agent)
+
 	if result.Error != nil {
 		errorString := fmt.Sprintf("Unable to update delivery agent's status: %v", err)
 		return nil, status.Error(codes.InvalidArgument, errorString)
@@ -92,7 +93,7 @@ func(s *Server) AssignDeliveryAgent(ctx context.Context, req *pb.AssignRequest) 
 	delivery := &models.Delivery{
 		OrderID: uint64(req.OrderId),
 		City: req.City,
-		DeliveryAgent: delivery_agent,
+		DeliveryAgentID: delivery_agent.ID,
 		Status: models.UNDELIVERED,
 	}
 
