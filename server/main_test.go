@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 
 	"testing"
 
+	"fulfillment/fulfillment"
 	pb "fulfillment/fulfillment"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -247,6 +250,106 @@ func TestAssignDeliveryAgent(t *testing.T) {
 				assert.Equalf(t, tt.errorCode, statusErr.Code(), "Expected %v error", tt.errorCode)
 			} else {
 				assert.Equalf(t, tt.want, got, "AssignDeliveryAgent(%v, %v)", tt.args.ctx, tt.args.req)
+			}
+		})
+	}
+}
+
+func TestFetchingAllDeliveriesForADeliveryAgent(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	assert.Nil(t, err, "Error creating mock db: %v", err)
+
+	defer db.Close()
+
+	dialect := postgres.New(postgres.Config{
+		Conn:       db,
+		DriverName: "postgres",
+	})
+
+	gormDb, err := gorm.Open(dialect, &gorm.Config{})
+	assert.Nil(t, err, "Error creating mock gorm db: %v", err)
+
+	type args struct {
+		ctx context.Context
+		req *pb.FetchDeliveriesRequest
+	}
+	tests := []struct {
+		name    string
+		args    args
+		rows    func()
+		want    *pb.FetchDeliveriesResponse
+		wantErr bool
+		errorCode codes.Code
+	}{
+		{
+			name: "Fetching all deliveries for an agent - Expect Success",
+			args: args{
+				ctx: metadata.NewIncomingContext(context.Background(), metadata.MD{
+					"authorization": []string{"Basic " + base64.StdEncoding.EncodeToString([]byte("testuser:testpassword"))},
+				}),
+				req: &pb.FetchDeliveriesRequest{
+				},
+			},
+			rows: func() {
+				mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{"id", "username", "password", "city", "availabilty"}).
+					AddRow(1, "testuser", "testpassword", "TestCity", "AVAILABLE"))
+
+				mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{"id", "order_id", "city", "delivery_agent_id", "status"}).
+					AddRow(1, 1, "TestCity", 1, "DELIVERED").
+					AddRow(2, 2, "TestCity", 1, "DELIVERED"))
+			},
+			want: &pb.FetchDeliveriesResponse{
+				Deliveries: []*fulfillment.Delivery{
+					{
+						Id:     1,
+						OrderId: 1,
+						City:    "TestCity",
+						Status:  "DELIVERED",
+					},
+					{
+						Id: 2,
+						OrderId: 2,
+						City: "TestCity",
+						Status: "DELIVERED",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Fetching deliveries but invalid username or password - Expect Unauthorized",
+			args: args{
+				ctx: metadata.NewIncomingContext(context.Background(), metadata.MD{
+					"authorization": []string{"Basic " + base64.StdEncoding.EncodeToString([]byte("testuser:testpassword"))},
+				}),
+				req: &pb.FetchDeliveriesRequest{
+				},
+			},
+			rows: func() {
+				mock.ExpectQuery("SELECT").WillReturnRows(sqlmock.NewRows([]string{})) 
+			},
+			want: nil,
+			wantErr: true,
+			errorCode: codes.Unauthenticated,
+		},
+		
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.rows()
+			server := &Server{DB: gormDb} 
+
+			got, err := server.FetchAllDeliveriesForAnAgent(tt.args.ctx, tt.args.req)
+
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("FetchAllDeliveriesForAnAgent() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				statusErr, ok := status.FromError(err)
+				assert.True(t, ok, "Expected gRPC status error")
+				assert.Equalf(t, tt.errorCode, statusErr.Code(), "Expected %v error", tt.errorCode)
+			} else {
+				assert.Equalf(t, tt.want, got, "FetchAllDeliveriesForAnAgent(%v, %v)", tt.args.ctx, tt.args.req)
 			}
 		})
 	}

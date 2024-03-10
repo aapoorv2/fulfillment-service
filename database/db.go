@@ -64,7 +64,7 @@ func FindAvailableDeliveryAgentByCity(db *gorm.DB, city string) (*models.User, e
 
 func FetchDeliveriesForAnAgent(db *gorm.DB, userID uint64) ([]models.Delivery) {
     var deliveries []models.Delivery
-    db.Preload("DeliveryAgent").Where("delivery_agent_id = ?", userID).Find(&deliveries)
+    db.Where("delivery_agent_id = ?", userID).Find(&deliveries)
     return deliveries
 }
 
