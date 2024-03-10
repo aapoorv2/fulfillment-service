@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/base64"
-
 	"testing"
 
 	"fulfillment/fulfillment"
@@ -280,6 +279,7 @@ func TestFetchingAllDeliveriesForADeliveryAgent(t *testing.T) {
 		want    *pb.FetchDeliveriesResponse
 		wantErr bool
 		errorCode codes.Code
+		errorMessage string
 	}{
 		{
 			name: "Fetching all deliveries for an agent - Expect Success",
@@ -331,6 +331,21 @@ func TestFetchingAllDeliveriesForADeliveryAgent(t *testing.T) {
 			want: nil,
 			wantErr: true,
 			errorCode: codes.Unauthenticated,
+			errorMessage: "invalid credentials",
+		},
+		{
+			name: "Fetching deliveries but authorization header not provided - Expect Unauthorized",
+			args: args{
+				ctx: context.Background(),
+				req: &pb.FetchDeliveriesRequest{
+				},
+			},
+			rows: func() {
+			},
+			want: nil,
+			wantErr: true,
+			errorCode: codes.Unauthenticated,
+			errorMessage: "authorization header not found",
 		},
 		
 	}
@@ -340,7 +355,6 @@ func TestFetchingAllDeliveriesForADeliveryAgent(t *testing.T) {
 			server := &Server{DB: gormDb} 
 
 			got, err := server.FetchAllDeliveriesForAnAgent(tt.args.ctx, tt.args.req)
-
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("FetchAllDeliveriesForAnAgent() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -348,6 +362,7 @@ func TestFetchingAllDeliveriesForADeliveryAgent(t *testing.T) {
 				statusErr, ok := status.FromError(err)
 				assert.True(t, ok, "Expected gRPC status error")
 				assert.Equalf(t, tt.errorCode, statusErr.Code(), "Expected %v error", tt.errorCode)
+				assert.Equal(t, tt.errorMessage, statusErr.Message())
 			} else {
 				assert.Equalf(t, tt.want, got, "FetchAllDeliveriesForAnAgent(%v, %v)", tt.args.ctx, tt.args.req)
 			}
